@@ -1,0 +1,123 @@
+name: Build SubGen
+
+on:
+  workflow_dispatch:  # Allow manual triggering
+  push:
+    tags:
+      - 'v*'  # Trigger on version tags (e.g., v1.0.0)
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+        python-version: ['3.10']
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install FFmpeg (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        choco install ffmpeg -y
+        # Verify installation
+        ffmpeg -version
+
+    - name: Install FFmpeg (macOS)
+      if: runner.os == 'macOS'
+      run: |
+        brew install ffmpeg
+        which ffmpeg
+        which ffprobe
+
+    - name: Install FFmpeg (Linux)
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y ffmpeg
+        which ffmpeg
+        which ffprobe
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Update spec file with FFmpeg paths (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        python scripts/build.py --update-spec
+
+    - name: Update spec file with FFmpeg paths (macOS)
+      if: runner.os == 'macOS'
+      run: |
+        python scripts/build.py --update-spec
+
+    - name: Update spec file with FFmpeg paths (Linux)
+      if: runner.os == 'Linux'
+      run: |
+        python scripts/build.py --update-spec
+
+    - name: Build with PyInstaller
+      run: |
+        pyinstaller subgen.spec
+
+    - name: Verify build
+      run: |
+        python scripts/build.py --verify
+
+    - name: Package (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        cd dist
+        Compress-Archive -Path SubGen -DestinationPath SubGen-Windows-x64.zip
+
+    - name: Package (macOS)
+      if: runner.os == 'macOS'
+      run: |
+        cd dist
+        tar -czf SubGen-macOS.tar.gz SubGen/
+
+    - name: Package (Linux)
+      if: runner.os == 'Linux'
+      run: |
+        cd dist
+        tar -czf SubGen-Linux-x64.tar.gz SubGen/
+
+    - name: Upload artifact (Windows)
+      if: runner.os == 'Windows'
+      uses: actions/upload-artifact@v4
+      with:
+        name: SubGen-Windows-x64
+        path: dist/SubGen-Windows-x64.zip
+        retention-days: 30
+
+    - name: Upload artifact (macOS)
+      if: runner.os == 'macOS'
+      uses: actions/upload-artifact@v4
+      with:
+        name: SubGen-macOS
+        path: dist/SubGen-macOS.tar.gz
+        retention-days: 30
+
+    - name: Upload artifact (Linux)
+      if: runner.os == 'Linux'
+      uses: actions/upload-artifact@v4
+      with:
+        name: SubGen-Linux-x64
+        path: dist/SubGen-Linux-x64.tar.gz
+        retention-days: 30
