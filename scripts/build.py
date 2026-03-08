@@ -12,6 +12,10 @@ import subprocess
 import sys
 from pathlib import Path
 
+# Ensure UTF-8 output on Windows (default console encoding is cp1252)
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8')
+
 
 def get_platform_info():
     """Get current platform information."""
