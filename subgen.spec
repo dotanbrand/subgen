@@ -64,6 +64,7 @@ a = Analysis(
     hiddenimports=[
         'faster_whisper',
         'PyQt6',
+        'PyQt6.sip',
         'ffmpeg',
     ],
     hookspath=[],
